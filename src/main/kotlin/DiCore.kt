@@ -111,15 +111,11 @@ class DiContainer(
             val constructorArgumentsInstances = primaryConstructor.parameters.map {
                 val argClass = it.type.classifier as KClass<*>
 
-                when {
-                    argClass == Lazy::class -> {
-                        val lazyArgClass = it.type.arguments[0].type!!.classifier as KClass<*>
-                        getLazy(lazyArgClass)
-                    }
-
-                    it.type.isMarkedNullable -> get(argClass, optional = true)
-
-                    else -> get(argClass)
+                if (argClass == Lazy::class) {
+                    val lazyArgClass = it.type.arguments[0].type!!.classifier as KClass<*>
+                    getLazy(lazyArgClass)
+                } else {
+                    get(argClass, optional = it.type.isMarkedNullable)
                 }
             }
             return primaryConstructor.call(*constructorArgumentsInstances.toTypedArray())
