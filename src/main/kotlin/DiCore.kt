@@ -38,7 +38,7 @@ class DiContainer(
      * Get lazy instance of given class.
      */
     inline fun <reified T : Any> getLazy(): Lazy<T> {
-        return getLazy(T::class)
+        return getLazy(T::class)!!
     }
 
     /**
@@ -48,7 +48,20 @@ class DiContainer(
         return get(T::class, optional = true)
     }
 
-    fun <T : Any> getLazy(clazz: KClass<T>): Lazy<T> {
+    /**
+     * Get optional lazy instance of given class.
+     */
+    inline fun <reified T : Any> getOptionalLazy(): Lazy<T>? {
+        return getLazy(T::class, optional = true)
+    }
+
+    fun <T : Any> getLazy(clazz: KClass<T>, optional: Boolean = false): Lazy<T>? {
+        if (!canProvide(clazz)) {
+            instances[clazz] = null
+            throwNotFoundExceptionIfNeeded(clazz, null, optional)
+            return null
+        }
+
         return lazy { get(clazz)!! }
     }
 
@@ -104,24 +117,35 @@ class DiContainer(
             return depsProviders.instantiate(clazz) as T
         }
 
-        if (clazz.hasAnnotation(InjectClass::class) && clazz.hasAnnotation(scope)) {
+        if (annotatedForInject(clazz)) {
             val primaryConstructor = clazz.primaryConstructor
                 ?: throw RuntimeException("No primary constructor for class ${clazz.qualifiedName}")
 
             val constructorArgumentsInstances = primaryConstructor.parameters.map {
-                val argClass = it.type.classifier as KClass<*>
+                val type = it.type
+                val argClass = type.classifier as KClass<*>
+                val isOptional = type.isMarkedNullable
 
                 if (argClass == Lazy::class) {
-                    val lazyArgClass = it.type.arguments[0].type!!.classifier as KClass<*>
-                    getLazy(lazyArgClass)
+                    val lazyArgClass = type.arguments[0].type!!.classifier as KClass<*>
+                    getLazy(lazyArgClass, optional = isOptional)
                 } else {
-                    get(argClass, optional = it.type.isMarkedNullable)
+                    get(argClass, optional = isOptional)
                 }
             }
             return primaryConstructor.call(*constructorArgumentsInstances.toTypedArray())
         }
 
         return null
+    }
+
+    private fun annotatedForInject(clazz: KClass<*>): Boolean {
+        return clazz.hasAnnotation(InjectClass::class) && clazz.hasAnnotation(scope)
+    }
+
+    private fun canProvide(clazz: KClass<*>): Boolean {
+        return instances.containsKey(clazz) || depsProviders.hasProvider(clazz)
+                || annotatedForInject(clazz) && clazz.primaryConstructor != null || superDi?.canProvide(clazz) == true
     }
 
     /**

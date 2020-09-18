@@ -70,7 +70,7 @@ class Provider(
     }
 
     fun <T : Any> getLazy(clazz: KClass<T>): Lazy<T> {
-        return container.getLazy(clazz)
+        return container.getLazy(clazz)!!
     }
 
     /**
@@ -82,5 +82,17 @@ class Provider(
 
     fun <T : Any> getOptional(clazz: KClass<T>): T? {
         return container.get(clazz, optional = true)
+    }
+
+    /**
+     * Get optional lazy instance from container.
+     */
+    inline fun <reified T : Any> getOptionalLazy(): Lazy<T>? {
+        return getOptionalLazy(T::class)
+    }
+
+
+    fun <T : Any> getOptionalLazy(clazz: KClass<T>): Lazy<T>? {
+        return container.getLazy(clazz, optional = true)
     }
 }
