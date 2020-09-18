@@ -144,7 +144,7 @@ class DiContainer(
     }
 
     private fun canProvide(clazz: KClass<*>): Boolean {
-        return instances.containsKey(clazz) || depsProviders.hasProvider(clazz)
+        return instances[clazz] != null || depsProviders.hasProvider(clazz)
                 || annotatedForInject(clazz) && clazz.primaryConstructor != null || superDi?.canProvide(clazz) == true
     }
 
